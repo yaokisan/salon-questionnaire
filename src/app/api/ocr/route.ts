@@ -50,39 +50,10 @@ export async function POST(request: NextRequest) {
     console.log('Parsed OCR data:', parsedData)
     console.log('=== END DEBUG ===')
 
-    // 画像をSupabaseに保存（実際の実装では適切なストレージを使用）
-    const imageUrl = `data:${file.type};base64,${base64Image}`
-
-    // アンケートデータをデータベースに保存
-    const { data: questionnaire, error: questionnaireError } = await supabase
-      .from('questionnaire_responses')
-      .insert([parsedData])
-      .select()
-      .single()
-
-    if (questionnaireError) {
-      console.error('Error saving questionnaire:', questionnaireError)
-      console.error('Parsed data that failed:', parsedData)
-      return NextResponse.json({ error: 'アンケートデータの保存に失敗しました', details: questionnaireError }, { status: 500 })
-    }
-
-    // OCR画像情報を保存
-    const { error: imageError } = await supabase
-      .from('ocr_images')
-      .insert([{
-        questionnaire_id: questionnaire.id,
-        image_url: imageUrl,
-        ocr_text: extractedText,
-      }])
-
-    if (imageError) {
-      console.error('Error saving OCR image:', imageError)
-    }
-
+    // OCR処理結果のみを返す（保存は行わない）
     return NextResponse.json({
       extractedText,
       parsedData,
-      questionnaireId: questionnaire.id,
     })
 
   } catch (error) {

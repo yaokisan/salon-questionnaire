@@ -118,6 +118,7 @@ export default function OCREditor() {
     setIsProcessing(true)
     
     try {
+      // アンケートデータをデータベースに保存
       const response = await fetch('/api/questionnaire', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,6 +126,26 @@ export default function OCREditor() {
       })
 
       if (response.ok) {
+        const result = await response.json()
+        const questionnaireId = result.id
+
+        // OCR画像がある場合は画像情報も保存
+        if (selectedFile && imagePreview && extractedText) {
+          const imageFormData = new FormData()
+          imageFormData.append('image', selectedFile)
+          imageFormData.append('questionnaire_id', questionnaireId.toString())
+          imageFormData.append('ocr_text', extractedText)
+
+          const imageResponse = await fetch('/api/ocr/save-image', {
+            method: 'POST',
+            body: imageFormData,
+          })
+
+          if (!imageResponse.ok) {
+            console.error('Error saving OCR image')
+          }
+        }
+
         setSubmitted(true)
       } else {
         const errorData = await response.json()
