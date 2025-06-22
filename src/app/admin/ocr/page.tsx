@@ -1,5 +1,5 @@
-import OCRUpload from '@/components/OCRUpload'
+import OCREditor from '@/components/OCREditor'
 
 export default function OCRPage() {
-  return <OCRUpload />
+  return <OCREditor />
 }
