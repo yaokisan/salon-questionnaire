@@ -41,6 +41,13 @@ export async function POST(request: NextRequest) {
     // 抽出されたテキストを解析してアンケートデータに変換
     const parsedData = parseOCRText(extractedText)
 
+    // nameフィールドが必須なので、抽出できなかった場合はデフォルト値を設定
+    if (!parsedData.name) {
+      parsedData.name = 'OCR読み取り'
+    }
+
+    console.log('Parsed OCR data:', parsedData)
+
     // 画像をSupabaseに保存（実際の実装では適切なストレージを使用）
     const imageUrl = `data:${file.type};base64,${base64Image}`
 
@@ -53,7 +60,8 @@ export async function POST(request: NextRequest) {
 
     if (questionnaireError) {
       console.error('Error saving questionnaire:', questionnaireError)
-      return NextResponse.json({ error: 'アンケートデータの保存に失敗しました' }, { status: 500 })
+      console.error('Parsed data that failed:', parsedData)
+      return NextResponse.json({ error: 'アンケートデータの保存に失敗しました', details: questionnaireError }, { status: 500 })
     }
 
     // OCR画像情報を保存

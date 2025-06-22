@@ -95,15 +95,19 @@ export default function AdminDashboard() {
   }
 
   const getAgeData = () => {
-    const ageCounts: Record<number, number> = {}
+    const ageCounts: Record<string, number> = {}
     filteredResponses.forEach(response => {
-      if (response.age_group) {
-        ageCounts[response.age_group] = (ageCounts[response.age_group] || 0) + 1
+      if (response.birth_year) {
+        const currentYear = new Date().getFullYear()
+        const age = currentYear - response.birth_year
+        const ageGroup = Math.floor(age / 10) * 10
+        const ageKey = `${ageGroup}代`
+        ageCounts[ageKey] = (ageCounts[ageKey] || 0) + 1
       }
     })
 
     return Object.entries(ageCounts).map(([age, count]) => ({
-      age: `${age}代`,
+      age,
       count
     }))
   }
@@ -267,7 +271,7 @@ export default function AdminDashboard() {
                       {response.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {response.age_group ? `${response.age_group}代` : '-'}
+                      {response.birth_year ? `${Math.floor((new Date().getFullYear() - response.birth_year) / 10) * 10}代` : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {response.source_type ? getSourceLabel(response.source_type) : '-'}
