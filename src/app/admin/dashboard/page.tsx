@@ -579,7 +579,8 @@ export default function AdminDashboard() {
                           className="hover:bg-blue-50 transition-colors cursor-pointer"
                           onClick={(e) => {
                             // チェックボックスがクリックされた場合は詳細表示しない
-                            if ((e.target as HTMLElement).type !== 'checkbox') {
+                            const target = e.target as HTMLElement
+                            if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') {
                               handleRowClick(response)
                             }
                           }}
