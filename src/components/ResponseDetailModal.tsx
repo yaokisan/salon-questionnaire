@@ -1,15 +1,47 @@
 'use client'
 
+import { useState } from 'react'
 import { QuestionnaireResponse } from '@/types/questionnaire'
-import { X, User, MapPin, Phone, Calendar, Instagram, Users, AlertCircle } from 'lucide-react'
+import { X, User, MapPin, Phone, Calendar, Instagram, Users, AlertCircle, Image, Edit } from 'lucide-react'
 
 interface ResponseDetailModalProps {
   response: QuestionnaireResponse | null
   isOpen: boolean
   onClose: () => void
+  onEdit?: (response: QuestionnaireResponse) => void
 }
 
-export default function ResponseDetailModal({ response, isOpen, onClose }: ResponseDetailModalProps) {
+interface ImageModalProps {
+  imageUrl: string | null
+  isOpen: boolean
+  onClose: () => void
+}
+
+function ImageModal({ imageUrl, isOpen, onClose }: ImageModalProps) {
+  if (!isOpen || !imageUrl) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
+      <div className="relative max-w-7xl max-h-[90vh] w-full h-full">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-75 transition-colors z-10"
+        >
+          <X size={24} />
+        </button>
+        <img
+          src={imageUrl}
+          alt="OCR画像拡大表示"
+          className="w-full h-full object-contain"
+        />
+      </div>
+    </div>
+  )
+}
+
+export default function ResponseDetailModal({ response, isOpen, onClose, onEdit }: ResponseDetailModalProps) {
+  const [showImageModal, setShowImageModal] = useState(false)
+  
   if (!isOpen || !response) return null
 
   const getSourceLabel = (source: string) => {
@@ -61,7 +93,7 @@ export default function ResponseDetailModal({ response, isOpen, onClose }: Respo
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* ヘッダー */}
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
           <div>
@@ -77,7 +109,7 @@ export default function ResponseDetailModal({ response, isOpen, onClose }: Respo
         </div>
 
         {/* コンテンツ */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
+        <div className="flex-1 p-6 overflow-y-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
             {/* 基本情報 */}
@@ -239,6 +271,21 @@ export default function ResponseDetailModal({ response, isOpen, onClose }: Respo
                     <span className="text-gray-800 font-mono">{response.id}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">入力方法:</span>
+                    <span className="text-gray-800">
+                      {response.is_ocr ? (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                          <Image className="mr-1" size={14} />
+                          OCR読み取り
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                          手動入力
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="font-medium text-gray-600">作成日時:</span>
                     <span className="text-gray-800">{formatDate(response.created_at!)}</span>
                   </div>
@@ -252,10 +299,53 @@ export default function ResponseDetailModal({ response, isOpen, onClose }: Respo
               </div>
             </div>
           </div>
+
+          {/* OCR画像（ある場合） */}
+          {response.is_ocr && response.ocr_image && (
+            <div className="mt-8">
+              <div className="bg-yellow-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-yellow-800 mb-4 flex items-center">
+                  <Image className="mr-2" size={20} />
+                  OCR元画像
+                </h3>
+                <div className="border rounded-lg overflow-hidden bg-white cursor-pointer hover:shadow-lg transition-shadow">
+                  <img
+                    src={response.ocr_image.image_url}
+                    alt="OCR元画像"
+                    className="w-full h-auto max-h-64 object-contain"
+                    onClick={() => setShowImageModal(true)}
+                  />
+                </div>
+                <p className="text-xs text-yellow-700 mt-2 text-center">
+                  画像をクリックして拡大表示
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* フッター */}
-        <div className="flex justify-end p-6 border-t bg-gray-50">
+        <div className="flex-shrink-0 flex items-center justify-between p-6 border-t bg-gray-50" style={{ minHeight: '80px' }}>
+          <div className="flex space-x-3">
+            {onEdit ? (
+              <button
+                onClick={() => {
+                  onEdit(response)
+                  onClose()
+                }}
+                className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center"
+                title={response.is_ocr ? "OCRデータを編集" : "アンケートを編集"}
+              >
+                <Edit className="mr-2" size={16} />
+                編集
+              </button>
+            ) : (
+              <div>
+                <span className="text-sm text-gray-500">編集機能が利用できません</span>
+                <div className="text-xs text-red-500 mt-1">DEBUG: onEdit={onEdit ? 'あり' : 'なし'}</div>
+              </div>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
@@ -264,6 +354,13 @@ export default function ResponseDetailModal({ response, isOpen, onClose }: Respo
           </button>
         </div>
       </div>
+
+      {/* 画像拡大モーダル */}
+      <ImageModal
+        imageUrl={response?.is_ocr && response?.ocr_image ? response.ocr_image.image_url : null}
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+      />
     </div>
   )
 }

@@ -19,6 +19,13 @@ export interface QuestionnaireResponse {
   past_treatments?: string[]
   created_at?: string
   updated_at?: string
+  // OCR関連フィールド
+  is_ocr?: boolean
+  ocr_image?: {
+    id: string
+    image_url: string
+    ocr_text?: string
+  }
 }
 
 export interface OCRImage {
