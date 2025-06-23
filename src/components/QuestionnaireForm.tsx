@@ -172,15 +172,9 @@ export default function QuestionnaireForm() {
         <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
           <div className="text-green-500 text-6xl mb-4">✓</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">送信完了</h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600">
             アンケートのご回答ありがとうございました。
           </p>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            ホームに戻る
-          </button>
         </div>
       </div>
     )
