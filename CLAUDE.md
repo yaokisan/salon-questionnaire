@@ -45,6 +45,12 @@ NEXTAUTH_SECRET=your_nextauth_secret
 NEXTAUTH_URL=your_app_url
 ```
 
+### Test Admin Credentials
+```bash
+Email: admin@belo-osaka.com
+Password: BeloAdmin2024!
+```
+
 ### Application Flow
 1. **Customer Flow**: Access questionnaire via QR code → Fill 4-step form with auto-features → Submit to database
 2. **Admin Flow**: Login → View dashboard with analytics → Process OCR images in OCREditor → Export data
