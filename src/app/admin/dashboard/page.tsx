@@ -3,15 +3,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { QuestionnaireResponse } from '@/types/questionnaire'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { Eye, Calendar, Filter, BarChart3, Users, FileText, Edit, Image, FileSpreadsheet, ChevronLeft, ChevronRight, X, ArrowUpDown, ArrowUp, ArrowDown, PieChart as PieChartIcon, BarChart as BarChartIcon, Trash2, Check } from 'lucide-react'
+import { Eye, Calendar, Filter, BarChart3, Users, FileText, Edit, Image, FileSpreadsheet, ChevronLeft, ChevronRight, X, ArrowUpDown, ArrowUp, ArrowDown, PieChart as PieChartIcon, BarChart as BarChartIcon, Trash2, Check, QrCode, LogOut, Camera } from 'lucide-react'
 import ResponseDetailModal from '@/components/ResponseDetailModal'
 import ResponseEditModal from '@/components/ResponseEditModal'
+import QRCodeTab from '@/components/QRCodeTab'
 
 export default function AdminDashboard() {
   const [responses, setResponses] = useState<QuestionnaireResponse[]>([])
   const [filteredResponses, setFilteredResponses] = useState<QuestionnaireResponse[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'responses' | 'analytics'>('responses')
+  const [activeTab, setActiveTab] = useState<'responses' | 'analytics' | 'qrcode' | 'ocr'>('responses')
   const [dateFilter, setDateFilter] = useState('all')
   const [sourceFilter, setSourceFilter] = useState('all')
   const [inputTypeFilter, setInputTypeFilter] = useState<'all' | 'manual' | 'ocr'>('all')
@@ -28,6 +29,19 @@ export default function AdminDashboard() {
   const [chartType, setChartType] = useState<'pie' | 'bar'>('pie')
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/admin/logout', {
+        method: 'POST',
+      })
+      if (response.ok) {
+        window.location.href = '/admin/login'
+      }
+    } catch (error) {
+      console.error('ログアウトエラー:', error)
+    }
+  }
 
   useEffect(() => {
     fetchResponses()
@@ -350,9 +364,18 @@ export default function AdminDashboard() {
               <h1 className="text-2xl font-bold text-gray-800">管理者ダッシュボード</h1>
               <p className="text-gray-600">BELO OSAKA アンケート管理</p>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">全回答数</p>
-              <p className="text-2xl font-bold text-blue-600">{responses.length}</p>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-600">全回答数</p>
+                <p className="text-2xl font-bold text-blue-600">{responses.length}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+              >
+                <LogOut className="mr-2" size={16} />
+                ログアウト
+              </button>
             </div>
           </div>
         </div>
@@ -383,6 +406,28 @@ export default function AdminDashboard() {
             >
               <BarChart3 className="inline mr-2" size={18} />
               分析・統計
+            </button>
+            <button
+              onClick={() => setActiveTab('qrcode')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'qrcode'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <QrCode className="inline mr-2" size={18} />
+              QRコード
+            </button>
+            <button
+              onClick={() => setActiveTab('ocr')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'ocr'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Camera className="inline mr-2" size={18} />
+              OCR読み取り
             </button>
           </div>
         </div>
@@ -728,7 +773,7 @@ export default function AdminDashboard() {
               )}
             </div>
           </>
-        ) : (
+        ) : activeTab === 'analytics' ? (
           /* 分析・統計タブ */
           <div className="space-y-6">
             {/* 期間フィルター */}
@@ -872,7 +917,23 @@ export default function AdminDashboard() {
             </div>
 
           </div>
-        )}
+        ) : activeTab === 'qrcode' ? (
+          <QRCodeTab />
+        ) : activeTab === 'ocr' ? (
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-center">
+              <Camera className="mx-auto mb-4 text-blue-600" size={48} />
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">OCR読み取り</h2>
+              <p className="text-gray-600 mb-6">紙のアンケートをスキャンしてデジタル化できます</p>
+              <button
+                onClick={() => window.location.href = '/ocr'}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                OCR読み取りページに移動
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {/* 詳細表示モーダル */}
         <ResponseDetailModal

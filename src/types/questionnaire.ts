@@ -2,6 +2,10 @@ export interface QuestionnaireResponse {
   id?: string
   furigana: string
   name: string
+  last_name?: string
+  first_name?: string
+  last_name_furigana?: string
+  first_name_furigana?: string
   address?: string
   postal_code: string
   phone: string

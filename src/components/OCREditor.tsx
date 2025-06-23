@@ -3,13 +3,17 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { questionnaireSchema } from '@/lib/validations'
+import { questionnaireFormSchema } from '@/lib/validations'
 import { QuestionnaireResponse } from '@/types/questionnaire'
 import { Upload, RotateCcw, Save, Eye } from 'lucide-react'
 
 type FormData = {
   furigana: string
   name: string
+  last_name: string
+  first_name: string
+  last_name_furigana: string
+  first_name_furigana: string
   address?: string
   postal_code: string
   phone: string
@@ -43,7 +47,7 @@ export default function OCREditor() {
     setValue,
     reset,
   } = useForm<FormData>({
-    resolver: zodResolver(questionnaireSchema),
+    resolver: zodResolver(questionnaireFormSchema),
     mode: 'onChange',
   })
 
@@ -161,7 +165,7 @@ export default function OCREditor() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-100">
+      <div className="flex items-center justify-center py-16">
         <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md w-full mx-4">
           <div className="text-green-500 text-6xl mb-4">✓</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">保存完了</h2>
@@ -193,12 +197,11 @@ export default function OCREditor() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">OCR アンケート読み取り・編集</h1>
-          <p className="text-gray-600">紙のアンケートをアップロードして自動読み取り、手動で修正できます</p>
-        </div>
+    <>
+      <div className="mb-8 text-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">アンケート読み取り・編集</h2>
+        <p className="text-gray-600">紙のアンケートをアップロードして自動読み取り、手動で修正できます</p>
+      </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* 左側: 画像プレビューエリア */}
@@ -502,7 +505,6 @@ export default function OCREditor() {
             </form>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }

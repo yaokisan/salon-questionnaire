@@ -122,11 +122,21 @@ export default function ResponseDetailModal({ response, isOpen, onClose, onEdit 
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-700">氏名:</span>
-                    <span className="text-gray-900">{response.name}</span>
+                    <span className="text-gray-900">
+                      {response.last_name && response.first_name 
+                        ? `${response.last_name} ${response.first_name}`
+                        : response.name || '-'
+                      }
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-700">ふりがな:</span>
-                    <span className="text-gray-900">{response.furigana || '-'}</span>
+                    <span className="text-gray-900">
+                      {response.last_name_furigana && response.first_name_furigana
+                        ? `${response.last_name_furigana} ${response.first_name_furigana}`
+                        : response.furigana || '-'
+                      }
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-700">生年月日:</span>

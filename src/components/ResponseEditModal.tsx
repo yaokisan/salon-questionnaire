@@ -6,6 +6,7 @@ import { X, Save, AlertCircle } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { questionnaireSchema } from '@/lib/validations'
+import { filterHiraganaOnly } from '@/lib/utils'
 
 interface ResponseEditModalProps {
   response: QuestionnaireResponse | null
@@ -67,6 +68,12 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
       reset(response)
     }
   }, [response, reset])
+
+  // ふりがなフィールドの入力制限（ひらがなのみ）
+  const handleFuriganaChange = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const filtered = filterHiraganaOnly(e.target.value)
+    setValue(field, filtered)
+  }
 
   if (!isOpen || !response) return null
 
@@ -162,24 +169,54 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   氏名 <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  {...register('name')}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <input
+                      type="text"
+                      {...register('last_name')}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="姓"
+                    />
+                    {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name.message}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      {...register('first_name')}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="名"
+                    />
+                    {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name.message}</p>}
+                  </div>
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   ふりがな <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  {...register('furigana')}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {errors.furigana && <p className="text-red-500 text-xs mt-1">{errors.furigana.message}</p>}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <input
+                      type="text"
+                      {...register('last_name_furigana')}
+                      onChange={handleFuriganaChange('last_name_furigana')}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="姓ふりがな"
+                    />
+                    {errors.last_name_furigana && <p className="text-red-500 text-xs mt-1">{errors.last_name_furigana.message}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      {...register('first_name_furigana')}
+                      onChange={handleFuriganaChange('first_name_furigana')}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="名ふりがな"
+                    />
+                    {errors.first_name_furigana && <p className="text-red-500 text-xs mt-1">{errors.first_name_furigana.message}</p>}
+                  </div>
+                </div>
               </div>
 
               <div>

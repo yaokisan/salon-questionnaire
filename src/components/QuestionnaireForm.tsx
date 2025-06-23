@@ -1,15 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { questionnaireSchema } from '@/lib/validations'
+import { questionnaireFormSchema } from '@/lib/validations'
 import { QuestionnaireResponse } from '@/types/questionnaire'
-import { fetchAddressFromPostalCode, generateFurigana, formatPostalCode, formatPhoneNumber } from '@/lib/utils'
+import { fetchAddressFromPostalCode, generateFurigana, formatPostalCode, formatPhoneNumber, filterHiraganaOnly } from '@/lib/utils'
 
 type FormData = {
   furigana: string
   name: string
+  last_name: string
+  first_name: string
+  last_name_furigana: string
+  first_name_furigana: string
   address?: string
   postal_code: string
   phone: string
@@ -41,23 +45,44 @@ export default function QuestionnaireForm() {
     setValue,
     trigger,
   } = useForm<FormData>({
-    resolver: zodResolver(questionnaireSchema),
+    resolver: zodResolver(questionnaireFormSchema),
     mode: 'onChange',
   })
 
   const sourceType = watch('source_type')
   const hasScalpSensitivity = watch('has_scalp_sensitivity')
-  const watchedName = watch('name')
+  const watchedLastName = watch('last_name')
+  const watchedFirstName = watch('first_name')
   const watchedPostalCode = watch('postal_code')
 
-  // 氏名変更時にふりがなを自動生成
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const name = e.target.value
-    const furigana = generateFurigana(name)
-    if (furigana) {
-      setValue('furigana', furigana)
+  // 姓・名変更時に氏名とふりがなを自動生成
+  const handleNameChange = () => {
+    const lastName = watchedLastName || ''
+    const firstName = watchedFirstName || ''
+    const fullName = `${lastName} ${firstName}`.trim()
+    setValue('name', fullName)
+    
+    if (lastName || firstName) {
+      const { lastNameFurigana, firstNameFurigana, fullFurigana } = generateFurigana(lastName, firstName)
+      
+      if (lastNameFurigana) {
+        setValue('last_name_furigana', lastNameFurigana)
+      }
+      
+      if (firstNameFurigana) {
+        setValue('first_name_furigana', firstNameFurigana)
+      }
+      
+      if (fullFurigana) {
+        setValue('furigana', fullFurigana)
+      }
     }
   }
+
+  // 姓・名の変更を監視
+  useEffect(() => {
+    handleNameChange()
+  }, [watchedLastName, watchedFirstName])
 
   // 郵便番号変更時に住所を自動取得
   const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,13 +103,19 @@ export default function QuestionnaireForm() {
     setValue('phone', formatted)
   }
 
+  // ふりがなフィールドの入力制限（ひらがなのみ）
+  const handleFuriganaChange = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const filtered = filterHiraganaOnly(e.target.value)
+    setValue(field, filtered)
+  }
+
   // ステップ進行時のバリデーション
   const handleNextStep = async () => {
     let fieldsToValidate: (keyof FormData)[] = []
     
     switch (step) {
       case 1:
-        fieldsToValidate = ['name', 'furigana', 'postal_code', 'phone', 'birth_year', 'birth_month', 'birth_day']
+        fieldsToValidate = ['last_name', 'first_name', 'last_name_furigana', 'first_name_furigana', 'postal_code', 'phone', 'birth_year', 'birth_month', 'birth_day']
         break
       case 2:
         fieldsToValidate = ['source_type']
@@ -107,6 +138,10 @@ export default function QuestionnaireForm() {
   const handleFinalSubmit = async () => {
     setIsSubmitting(true)
     const data = watch()
+    
+    // 姓名を結合
+    data.name = `${data.last_name} ${data.first_name}`.trim()
+    data.furigana = `${data.last_name_furigana} ${data.first_name_furigana}`.trim()
     
     try {
       const response = await fetch('/api/questionnaire', {
@@ -165,11 +200,11 @@ export default function QuestionnaireForm() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700">氏名</label>
-                  <p className="text-gray-900">{data.name}</p>
+                  <p className="text-gray-900">{data.last_name} {data.first_name}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">ふりがな</label>
-                  <p className="text-gray-900">{data.furigana}</p>
+                  <p className="text-gray-900">{data.last_name_furigana} {data.first_name_furigana}</p>
                 </div>
               </div>
               
@@ -280,43 +315,77 @@ export default function QuestionnaireForm() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     氏名 <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    {...register('name')}
-                    onChange={handleNameChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                    placeholder="山田 太郎"
-                  />
-                  {errors.name && (
-                    <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
-                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <input
+                        type="text"
+                        {...register('last_name')}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        placeholder="姓（例：山田）"
+                      />
+                      {errors.last_name && (
+                        <p className="text-red-500 text-sm mt-1">{errors.last_name.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        {...register('first_name')}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        placeholder="名（例：太郎）"
+                      />
+                      {errors.first_name && (
+                        <p className="text-red-500 text-sm mt-1">{errors.first_name.message}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ふりがな <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    {...register('furigana')}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                    placeholder="やまだ たろう"
-                  />
-                  {errors.furigana && (
-                    <p className="text-red-500 text-sm mt-1">{errors.furigana.message}</p>
-                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <input
+                        type="text"
+                        {...register('last_name_furigana')}
+                        onChange={handleFuriganaChange('last_name_furigana')}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        placeholder="姓ふりがな（例：やまだ）"
+                      />
+                      {errors.last_name_furigana && (
+                        <p className="text-red-500 text-sm mt-1">{errors.last_name_furigana.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        {...register('first_name_furigana')}
+                        onChange={handleFuriganaChange('first_name_furigana')}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        placeholder="名ふりがな（例：たろう）"
+                      />
+                      {errors.first_name_furigana && (
+                        <p className="text-red-500 text-sm mt-1">{errors.first_name_furigana.message}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    郵便番号 <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center mb-1">
+                    <span className="text-lg mr-2">〒</span>
+                    <label className="block text-sm font-medium text-gray-700">
+                      郵便番号 <span className="text-red-500">*</span>
+                    </label>
+                  </div>
                   <input
                     type="text"
                     {...register('postal_code')}
                     onChange={handlePostalCodeChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                    placeholder="〒000-0000"
+                    placeholder="000-0000"
                     maxLength={8}
                   />
                   {errors.postal_code && (
@@ -513,25 +582,33 @@ export default function QuestionnaireForm() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     前回の美容室での施術時期
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      {...register('last_salon_year', { valueAsNumber: true })}
-                      className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                    >
-                      <option value="">年を選択</option>
-                      {Array.from({ length: 10 }, (_, i) => 2024 - i).map(year => (
-                        <option key={year} value={year}>{year}年</option>
-                      ))}
-                    </select>
-                    <select
-                      {...register('last_salon_month', { valueAsNumber: true })}
-                      className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                    >
-                      <option value="">月を選択</option>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                        <option key={month} value={month}>{month}月</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        {...register('last_salon_year', { 
+                          valueAsNumber: true,
+                          setValueAs: (value) => value ? parseInt(value) : undefined
+                        })}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        placeholder="2024"
+                        maxLength={4}
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">年</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        {...register('last_salon_month', { 
+                          valueAsNumber: true,
+                          setValueAs: (value) => value ? parseInt(value) : undefined
+                        })}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        placeholder="12"
+                        maxLength={2}
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">月頃</span>
+                    </div>
                   </div>
                 </div>
 
