@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { questionnaireFormSchema } from '@/lib/validations'
+import { ocrFormSchema } from '@/lib/validations'
 import { QuestionnaireResponse } from '@/types/questionnaire'
 import { Upload, RotateCcw, Save, Eye } from 'lucide-react'
+import { filterHiraganaOnly, generateFurigana } from '@/lib/utils'
 
 type FormData = {
   furigana: string
@@ -47,12 +48,80 @@ export default function OCREditor() {
     setValue,
     reset,
   } = useForm<FormData>({
-    resolver: zodResolver(questionnaireFormSchema),
+    resolver: zodResolver(ocrFormSchema),
     mode: 'onChange',
   })
 
   const sourceType = watch('source_type')
   const hasScalpSensitivity = watch('has_scalp_sensitivity')
+  const watchedLastName = watch('last_name')
+  const watchedFirstName = watch('first_name')
+
+  // IME入力状態を管理
+  const isComposingRef = useRef(false)
+
+  // ふりがなフィールドの入力制限（ひらがなのみ）
+  const handleFuriganaCompositionStart = () => {
+    isComposingRef.current = true
+  }
+
+  const handleFuriganaCompositionEnd = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false
+    const target = e.currentTarget
+    const filtered = filterHiraganaOnly(target.value)
+    if (target.value !== filtered) {
+      target.value = filtered
+      setValue(field, filtered, { shouldValidate: true })
+      updateCombinedFields()
+    }
+  }
+
+  const handleFuriganaInput = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.FormEvent<HTMLInputElement>) => {
+    // IME入力中は処理しない
+    if (isComposingRef.current) return
+    
+    const target = e.currentTarget
+    const filtered = filterHiraganaOnly(target.value)
+    if (target.value !== filtered) {
+      target.value = filtered
+      setValue(field, filtered, { shouldValidate: true })
+      updateCombinedFields()
+    }
+  }
+
+  // 姓・名から結合フィールドを更新
+  const updateCombinedFields = () => {
+    const lastName = watch('last_name') || ''
+    const firstName = watch('first_name') || ''
+    const lastNameFurigana = watch('last_name_furigana') || ''
+    const firstNameFurigana = watch('first_name_furigana') || ''
+    
+    setValue('name', `${lastName} ${firstName}`.trim())
+    setValue('furigana', `${lastNameFurigana} ${firstNameFurigana}`.trim())
+  }
+
+  // 姓・名変更時にふりがなを自動生成
+  useEffect(() => {
+    const lastName = watchedLastName || ''
+    const firstName = watchedFirstName || ''
+    
+    if (lastName || firstName) {
+      const { lastNameFurigana, firstNameFurigana, fullFurigana } = generateFurigana(lastName, firstName)
+      
+      if (lastNameFurigana && !watch('last_name_furigana')) {
+        setValue('last_name_furigana', lastNameFurigana)
+      }
+      
+      if (firstNameFurigana && !watch('first_name_furigana')) {
+        setValue('first_name_furigana', firstNameFurigana)
+      }
+      
+      setValue('name', `${lastName} ${firstName}`.trim())
+      if (fullFurigana) {
+        setValue('furigana', fullFurigana)
+      }
+    }
+  }, [watchedLastName, watchedFirstName])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -94,6 +163,23 @@ export default function OCREditor() {
             setValue(key as keyof FormData, value as any)
           }
         })
+        
+        // 結合フィールドから分離フィールドを生成
+        if (data.parsedData.name && !data.parsedData.last_name) {
+          const nameParts = data.parsedData.name.split(' ')
+          if (nameParts.length >= 2) {
+            setValue('last_name', nameParts[0])
+            setValue('first_name', nameParts.slice(1).join(' '))
+          }
+        }
+        
+        if (data.parsedData.furigana && !data.parsedData.last_name_furigana) {
+          const furiganaParts = data.parsedData.furigana.split(' ')
+          if (furiganaParts.length >= 2) {
+            setValue('last_name_furigana', furiganaParts[0])
+            setValue('first_name_furigana', furiganaParts.slice(1).join(' '))
+          }
+        }
       } else {
         const errorData = await response.json()
         alert(errorData.error || 'OCR処理に失敗しました')
@@ -285,38 +371,68 @@ export default function OCREditor() {
             <h2 className="text-xl font-semibold text-gray-800 mb-4">アンケート内容編集</h2>
             
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    氏名 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    {...register('name')}
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="山田 太郎"
-                  />
-                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  氏名
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      {...register('last_name')}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="姓（例：山田）"
+                    />
+                    {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name.message}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      {...register('first_name')}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="名（例：太郎）"
+                    />
+                    {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name.message}</p>}
+                  </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ふりがな <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    {...register('furigana')}
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="やまだ たろう"
-                  />
-                  {errors.furigana && <p className="text-red-500 text-xs mt-1">{errors.furigana.message}</p>}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ふりがな
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      {...register('last_name_furigana')}
+                      onCompositionStart={handleFuriganaCompositionStart}
+                      onCompositionEnd={handleFuriganaCompositionEnd('last_name_furigana')}
+                      onInput={handleFuriganaInput('last_name_furigana')}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="姓ふりがな（例：やまだ）"
+                    />
+                    {errors.last_name_furigana && <p className="text-red-500 text-xs mt-1">{errors.last_name_furigana.message}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      {...register('first_name_furigana')}
+                      onCompositionStart={handleFuriganaCompositionStart}
+                      onCompositionEnd={handleFuriganaCompositionEnd('first_name_furigana')}
+                      onInput={handleFuriganaInput('first_name_furigana')}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="名ふりがな（例：たろう）"
+                    />
+                    {errors.first_name_furigana && <p className="text-red-500 text-xs mt-1">{errors.first_name_furigana.message}</p>}
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    郵便番号 <span className="text-red-500">*</span>
+                    郵便番号
                   </label>
                   <input
                     type="text"
@@ -329,7 +445,7 @@ export default function OCREditor() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    電話番号 <span className="text-red-500">*</span>
+                    電話番号
                   </label>
                   <input
                     type="tel"
@@ -355,7 +471,7 @@ export default function OCREditor() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  生年月日 <span className="text-red-500">*</span>
+                  生年月日
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   <select
@@ -393,7 +509,7 @@ export default function OCREditor() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  来店きっかけ <span className="text-red-500">*</span>
+                  来店きっかけ
                 </label>
                 <select
                   {...register('source_type')}
@@ -442,14 +558,14 @@ export default function OCREditor() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  頭皮アレルギーの有無 <span className="text-red-500">*</span>
+                  頭皮アレルギーの有無
                 </label>
                 <div className="flex gap-4">
                   <label className="flex items-center">
                     <input
                       type="radio"
-                      name="has_scalp_sensitivity"
                       value="true"
+                      checked={hasScalpSensitivity === true}
                       onChange={() => setValue('has_scalp_sensitivity', true)}
                       className="mr-2"
                     />
@@ -458,8 +574,8 @@ export default function OCREditor() {
                   <label className="flex items-center">
                     <input
                       type="radio"
-                      name="has_scalp_sensitivity"
                       value="false"
+                      checked={hasScalpSensitivity === false}
                       onChange={() => setValue('has_scalp_sensitivity', false)}
                       className="mr-2"
                     />

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { QuestionnaireResponse } from '@/types/questionnaire'
 import { X, Save, AlertCircle } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { questionnaireSchema } from '@/lib/validations'
+import { questionnaireSchema, ocrFormSchema } from '@/lib/validations'
 import { filterHiraganaOnly } from '@/lib/utils'
 
 interface ResponseEditModalProps {
@@ -56,7 +56,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
     reset,
     watch
   } = useForm<QuestionnaireResponse>({
-    resolver: zodResolver(questionnaireSchema),
+    resolver: zodResolver(response?.is_ocr ? ocrFormSchema : questionnaireSchema),
     mode: 'onChange'
   })
 
@@ -69,10 +69,34 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
     }
   }, [response, reset])
 
+  // IME入力状態を管理
+  const isComposingRef = useRef(false)
+
   // ふりがなフィールドの入力制限（ひらがなのみ）
-  const handleFuriganaChange = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const filtered = filterHiraganaOnly(e.target.value)
-    setValue(field, filtered)
+  const handleFuriganaCompositionStart = () => {
+    isComposingRef.current = true
+  }
+
+  const handleFuriganaCompositionEnd = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false
+    const target = e.currentTarget
+    const filtered = filterHiraganaOnly(target.value)
+    if (target.value !== filtered) {
+      target.value = filtered
+      setValue(field, filtered, { shouldValidate: true })
+    }
+  }
+
+  const handleFuriganaInput = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.FormEvent<HTMLInputElement>) => {
+    // IME入力中は処理しない
+    if (isComposingRef.current) return
+    
+    const target = e.currentTarget
+    const filtered = filterHiraganaOnly(target.value)
+    if (target.value !== filtered) {
+      target.value = filtered
+      setValue(field, filtered, { shouldValidate: true })
+    }
   }
 
   if (!isOpen || !response) return null
@@ -112,7 +136,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
         {/* ヘッダー */}
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
           <div>
@@ -129,7 +153,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
         </div>
 
         {/* コンテンツエリア */}
-        <div className="flex flex-col lg:flex-row overflow-hidden" style={{ height: 'calc(90vh - 80px)' }}>
+        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
           {/* OCR画像（左側） - OCRの場合のみ表示 */}
           {response.is_ocr && response.ocr_image && (
             <div className="w-full lg:w-1/3 border-r border-gray-200 p-6 overflow-y-auto bg-gray-50">
@@ -149,9 +173,9 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
           )}
 
           {/* フォーム（右側） */}
+          <div className={`flex-1 p-6 overflow-y-auto ${response.is_ocr && response.ocr_image ? 'lg:w-2/3' : 'w-full'}`}>
           <form 
-            onSubmit={handleSubmit(onSubmit)} 
-            className={`flex-1 p-6 overflow-y-auto ${response.is_ocr && response.ocr_image ? 'lg:w-2/3' : 'w-full'}`}
+            onSubmit={handleSubmit(onSubmit)}
           >
             {error && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
@@ -167,7 +191,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  氏名 <span className="text-red-500">*</span>
+                  氏名 {!response.is_ocr && <span className="text-red-500">*</span>}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -193,14 +217,16 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ふりがな <span className="text-red-500">*</span>
+                  ふりがな {!response.is_ocr && <span className="text-red-500">*</span>}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <input
                       type="text"
                       {...register('last_name_furigana')}
-                      onChange={handleFuriganaChange('last_name_furigana')}
+                      onCompositionStart={handleFuriganaCompositionStart}
+                      onCompositionEnd={handleFuriganaCompositionEnd('last_name_furigana')}
+                      onInput={handleFuriganaInput('last_name_furigana')}
                       className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="姓ふりがな"
                     />
@@ -210,7 +236,9 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
                     <input
                       type="text"
                       {...register('first_name_furigana')}
-                      onChange={handleFuriganaChange('first_name_furigana')}
+                      onCompositionStart={handleFuriganaCompositionStart}
+                      onCompositionEnd={handleFuriganaCompositionEnd('first_name_furigana')}
+                      onInput={handleFuriganaInput('first_name_furigana')}
                       className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="名ふりがな"
                     />
@@ -221,7 +249,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  生年月日 <span className="text-red-500">*</span>
+                  生年月日 {!response.is_ocr && <span className="text-red-500">*</span>}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   <select
@@ -264,7 +292,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  郵便番号 <span className="text-red-500">*</span>
+                  郵便番号 {!response.is_ocr && <span className="text-red-500">*</span>}
                 </label>
                 <input
                   type="text"
@@ -286,7 +314,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  電話番号 <span className="text-red-500">*</span>
+                  電話番号 {!response.is_ocr && <span className="text-red-500">*</span>}
                 </label>
                 <input
                   type="tel"
@@ -304,7 +332,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  来店きっかけ <span className="text-red-500">*</span>
+                  来店きっかけ {!response.is_ocr && <span className="text-red-500">*</span>}
                 </label>
                 <select
                   {...register('source_type')}
@@ -352,14 +380,14 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  頭皮アレルギーの有無 <span className="text-red-500">*</span>
+                  頭皮アレルギーの有無 {!response.is_ocr && <span className="text-red-500">*</span>}
                 </label>
                 <div className="flex gap-4">
                   <label className="flex items-center">
                     <input
                       type="radio"
                       value="true"
-                      {...register('has_scalp_sensitivity')}
+                      checked={hasScalpSensitivity === true}
                       onChange={() => setValue('has_scalp_sensitivity', true)}
                       className="mr-2"
                     />
@@ -369,7 +397,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
                     <input
                       type="radio"
                       value="false"
-                      {...register('has_scalp_sensitivity')}
+                      checked={hasScalpSensitivity === false}
                       onChange={() => setValue('has_scalp_sensitivity', false)}
                       className="mr-2"
                     />
@@ -404,6 +432,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
               </div>
             )}
           </form>
+          </div>
         </div>
 
         {/* フッター */}

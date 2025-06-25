@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { questionnaireFormSchema } from '@/lib/validations'
@@ -103,10 +103,34 @@ export default function QuestionnaireForm() {
     setValue('phone', formatted)
   }
 
+  // IME入力状態を管理
+  const isComposingRef = useRef(false)
+
   // ふりがなフィールドの入力制限（ひらがなのみ）
-  const handleFuriganaChange = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const filtered = filterHiraganaOnly(e.target.value)
-    setValue(field, filtered)
+  const handleFuriganaCompositionStart = () => {
+    isComposingRef.current = true
+  }
+
+  const handleFuriganaCompositionEnd = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false
+    const target = e.currentTarget
+    const filtered = filterHiraganaOnly(target.value)
+    if (target.value !== filtered) {
+      target.value = filtered
+      setValue(field, filtered, { shouldValidate: true })
+    }
+  }
+
+  const handleFuriganaInput = (field: 'last_name_furigana' | 'first_name_furigana') => (e: React.FormEvent<HTMLInputElement>) => {
+    // IME入力中は処理しない
+    if (isComposingRef.current) return
+    
+    const target = e.currentTarget
+    const filtered = filterHiraganaOnly(target.value)
+    if (target.value !== filtered) {
+      target.value = filtered
+      setValue(field, filtered, { shouldValidate: true })
+    }
   }
 
   // ステップ進行時のバリデーション
@@ -344,7 +368,9 @@ export default function QuestionnaireForm() {
                       <input
                         type="text"
                         {...register('last_name_furigana')}
-                        onChange={handleFuriganaChange('last_name_furigana')}
+                        onCompositionStart={handleFuriganaCompositionStart}
+                        onCompositionEnd={handleFuriganaCompositionEnd('last_name_furigana')}
+                        onInput={handleFuriganaInput('last_name_furigana')}
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                         placeholder="姓ふりがな（例：やまだ）"
                       />
@@ -356,7 +382,9 @@ export default function QuestionnaireForm() {
                       <input
                         type="text"
                         {...register('first_name_furigana')}
-                        onChange={handleFuriganaChange('first_name_furigana')}
+                        onCompositionStart={handleFuriganaCompositionStart}
+                        onCompositionEnd={handleFuriganaCompositionEnd('first_name_furigana')}
+                        onInput={handleFuriganaInput('first_name_furigana')}
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                         placeholder="名ふりがな（例：たろう）"
                       />
