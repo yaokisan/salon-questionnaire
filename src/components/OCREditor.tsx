@@ -9,22 +9,22 @@ import { Upload, RotateCcw, Save, Eye } from 'lucide-react'
 import { filterHiraganaOnly, generateFurigana } from '@/lib/utils'
 
 type FormData = {
-  furigana: string
-  name: string
-  last_name: string
-  first_name: string
-  last_name_furigana: string
-  first_name_furigana: string
+  furigana?: string
+  name?: string
+  last_name?: string
+  first_name?: string
+  last_name_furigana?: string
+  first_name_furigana?: string
   address?: string
-  postal_code: string
-  phone: string
-  birth_year: number
-  birth_month: number
-  birth_day: number
-  source_type: 'storefront' | 'instagram_store' | 'instagram_personal' | 'hotpepper' | 'youtube' | 'google' | 'tiktok' | 'referral'
+  postal_code?: string
+  phone?: string
+  birth_year?: number
+  birth_month?: number
+  birth_day?: number
+  source_type?: 'storefront' | 'instagram_store' | 'instagram_personal' | 'hotpepper' | 'youtube' | 'google' | 'tiktok' | 'referral'
   instagram_account?: string
   referral_person?: string
-  has_scalp_sensitivity: boolean
+  has_scalp_sensitivity?: boolean
   scalp_sensitivity_details?: string
   last_salon_year?: number
   last_salon_month?: number
@@ -160,7 +160,8 @@ export default function OCREditor() {
         // フォームに自動入力
         Object.entries(data.parsedData).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== '') {
-            setValue(key as keyof FormData, value as any)
+            const fieldKey = key as keyof FormData
+            setValue(fieldKey, value as FormData[keyof FormData])
           }
         })
         

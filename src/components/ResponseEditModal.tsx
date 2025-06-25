@@ -56,7 +56,7 @@ export default function ResponseEditModal({ response, isOpen, onClose, onSave }:
     reset,
     watch
   } = useForm<QuestionnaireResponse>({
-    resolver: zodResolver(response?.is_ocr ? ocrFormSchema : questionnaireSchema),
+    resolver: zodResolver(questionnaireSchema) as any,
     mode: 'onChange'
   })
 
