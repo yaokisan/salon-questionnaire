@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Development
-npm run dev      # Start development server at localhost:3000
+npm run dev      # Start development server at localhost:5001
 npm run build    # Build for production
-npm run start    # Start production server
+npm run start    # Start production server at localhost:5001
 npm run lint     # Run ESLint linting
 ```
 

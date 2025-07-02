@@ -7,8 +7,10 @@ import { Eye, Calendar, Filter, BarChart3, Users, FileText, Edit, Image, FileSpr
 import ResponseDetailModal from '@/components/ResponseDetailModal'
 import ResponseEditModal from '@/components/ResponseEditModal'
 import QRCodeTab from '@/components/QRCodeTab'
+import { signOut, useSession } from 'next-auth/react'
 
 export default function AdminDashboard() {
+  const { data: session } = useSession()
   const [responses, setResponses] = useState<QuestionnaireResponse[]>([])
   const [filteredResponses, setFilteredResponses] = useState<QuestionnaireResponse[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,12 +34,7 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('/api/admin/logout', {
-        method: 'POST',
-      })
-      if (response.ok) {
-        window.location.href = '/admin/login'
-      }
+      await signOut({ callbackUrl: '/admin/login' })
     } catch (error) {
       console.error('ログアウトエラー:', error)
     }
@@ -364,6 +361,9 @@ export default function AdminDashboard() {
             <div className="flex-1">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-800">管理者ダッシュボード</h1>
               <p className="text-sm sm:text-base text-gray-600">BELO OSAKA アンケート管理</p>
+              {session?.user && (
+                <p className="text-xs text-gray-500 mt-1">ログイン中: {session.user.email}</p>
+              )}
             </div>
             <div className="flex items-center justify-between sm:justify-end space-x-4">
               <div className="text-center sm:text-right">
