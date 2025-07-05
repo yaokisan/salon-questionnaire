@@ -2,17 +2,24 @@ import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Supabaseクライアントを関数内で初期化（ビルド時エラー回避）
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Supabase環境変数が設定されていません')
+  }
+  
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
+}
 
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     })
   ],
   callbacks: {
@@ -24,9 +31,16 @@ export const authOptions: NextAuthOptions = {
         return false
       }
 
+      // 環境変数チェック
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        console.error('Supabase環境変数が設定されていません')
+        return false
+      }
+
       try {
         // admin_usersテーブルでメールアドレスを確認
         console.log('Checking admin_users table for:', user.email)
+        const supabase = getSupabaseClient()
         const { data: adminUser, error } = await supabase
           .from('admin_users')
           .select('*')
@@ -71,18 +85,23 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async session({ session, token }) {
-      if (session.user?.email) {
-        // セッションに管理者情報を追加
-        const { data: adminUser } = await supabase
+      if (session.user?.email && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        try {
+          // セッションに管理者情報を追加
+          const supabase = getSupabaseClient()
+          const { data: adminUser } = await supabase
           .from('admin_users')
           .select('id, role, name')
           .eq('google_email', session.user.email)
           .single()
 
-        if (adminUser) {
-          session.user.id = adminUser.id
-          session.user.role = adminUser.role
-          session.user.name = adminUser.name
+          if (adminUser) {
+            session.user.id = adminUser.id
+            session.user.role = adminUser.role
+            session.user.name = adminUser.name
+          }
+        } catch (error) {
+          console.error('Session error:', error)
         }
       }
       return session
